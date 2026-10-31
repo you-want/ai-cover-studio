@@ -1,0 +1,9 @@
+# 可选高质量组件（setup.sh --full 会自动尝试安装；失败不影响核心功能）
+# 1) 人声分离
+torch
+torchaudio
+demucs>=4.0.1
+
+# 2) OpenVoice v2 音色克隆（模型权重用 scripts/download_openvoice.py 下载，
+#    openvoice 本体因依赖冲突建议用 setup.sh 中的 --no-deps 方式安装）
+huggingface_hub

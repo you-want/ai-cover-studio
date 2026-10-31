@@ -1,0 +1,13 @@
+# 核心依赖（必需，全部轻量、离线可用）
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+# numpy 锁 <2：torch 2.2.2（Intel Mac 最后版本）与 demucs 生态需要 numpy 1.x
+numpy>=1.26,<2.0
+scipy>=1.11,<1.15
+soundfile>=0.12
+imageio-ffmpeg>=0.5   # 兜底 ffmpeg 二进制（系统未装 ffmpeg 时使用）
+
+# 开发/测试
+pytest>=8.0
+httpx>=0.27

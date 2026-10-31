@@ -1,0 +1,12 @@
+.venv/
+data/
+models/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+*.log
+# 游离的模型缓存 / demo 产物（可用脚本重新生成）
+checkpoints/
+demo/output*/
+demo/demo_song.wav

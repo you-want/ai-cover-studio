@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>声替 CoverMe · 用你的声音，唱你喜欢的歌</title>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<header>
+  <div class="logo"><img src="/assets/logo.svg" alt="声替 CoverMe" width="34" height="34"><span>声替<i>CoverMe</i></span></div>
+  <div class="tagline">克隆你的声音 · 翻唱你喜欢的歌 · 全程本地处理，不上传云端</div>
+</header>
+
+<main>
+  <div class="grid">
+    <div class="col-steps">
+
+      <section class="card">
+        <h2><span class="step-no">1</span>声音样本</h2>
+        <p class="hint">录 10~30 秒清晰人声（安静环境、正常音量，说话或哼唱均可），音色越有特点克隆效果越好。</p>
+        <div class="recorder">
+          <button id="btn-record" class="btn primary">🎙 开始录音</button>
+          <span id="rec-timer" class="timer hidden">00:00</span>
+          <span id="rec-hint" class="rec-hint"></span>
+        </div>
+        <audio id="rec-preview" controls class="hidden"></audio>
+        <div class="or"><span>或上传音频文件</span></div>
+        <label class="file-btn">📂 选择声音文件（≥10 秒）<input type="file" id="voice-file" accept="audio/*"></label>
+        <div id="sample-list" class="sample-list"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="step-no">2</span>选择歌曲</h2>
+        <div id="drop" class="drop">
+          <div class="drop-inner">🎵 拖拽歌曲到这里（可多首），或<span class="link">点击选择</span><br>
+            <small>支持 mp3 / wav / m4a / flac 等，建议 10 分钟以内</small></div>
+        </div>
+        <input type="file" id="song-file" accept="audio/*" multiple class="hidden">
+        <div id="song-list" class="song-list hidden"></div>
+        <label class="field"><span>作品名称（可选，批量时作为前缀）</span><input id="title" placeholder="默认取歌曲文件名"></label>
+      </section>
+
+      <section class="card">
+        <h2><span class="step-no">3</span>生成设置</h2>
+        <div class="group-label">声音引擎</div>
+        <div id="engine-list" class="opt-list"><div class="loading">检测引擎中…</div></div>
+        <div class="group-label">人声分离</div>
+        <div id="separator-list" class="opt-list"><div class="loading">检测分离器中…</div></div>
+        <label class="field slider"><span>人声音量 <b id="vg-val">0 dB</b></span>
+          <input type="range" id="vocal-gain" min="-12" max="12" step="1" value="0"></label>
+        <label class="field slider"><span>伴奏音量 <b id="ig-val">0 dB</b></span>
+          <input type="range" id="inst-gain" min="-12" max="12" step="1" value="0"></label>
+        <label class="field slider"><span>音高微调 <b id="pt-val">0 半音</b></span>
+          <input type="range" id="pitch" min="-6" max="6" step="1" value="0"></label>
+        <label class="field slider"><span>音色浓度 tau <b id="tau-val">0.30</b><small>（越小越浓，仅 OpenVoice）</small></span>
+          <input type="range" id="openvoice-tau" min="0.05" max="0.9" step="0.05" value="0.3"></label>
+        <div class="toggles">
+          <label class="toggle"><input type="checkbox" id="auto-balance" checked><span class="switch"></span>人声电平自动对齐</label>
+          <label class="toggle"><input type="checkbox" id="denoise-gate" checked><span class="switch"></span>静音段清理（去句间残噪）</label>
+        </div>
+        <button id="btn-go" class="btn primary big" disabled>🚀 生成翻唱</button>
+        <p id="go-hint" class="hint center">先完成第 1、2 步</p>
+      </section>
+
+    </div>
+
+    <div class="col-jobs">
+      <section class="card">
+        <h2>🎧 我的翻唱</h2>
+
+        <div id="active-box" class="hidden">
+          <div class="job-head"><b id="active-title"></b><span id="active-status" class="badge"></span>
+            <button id="btn-cancel" class="btn ghost small hidden">✕ 取消</button></div>
+          <div class="bar"><div id="bar-fill"></div></div>
+          <div id="job-liveness" class="liveness hidden" aria-live="polite"></div>
+          <div class="stage-row" id="stage-row"></div>
+          <div id="job-error" class="error hidden"></div>
+        </div>
+
+        <div id="result-box" class="hidden">
+          <h3 id="result-title"></h3>
+          <audio id="result-audio" controls></audio>
+          <div class="row">
+            <a id="btn-download" class="btn primary" download>⬇️ 下载成品</a>
+            <button id="btn-again" class="btn ghost">再唱一首</button>
+            <button id="btn-delete-cover" class="btn ghost del">🗑 删除</button>
+          </div>
+          <details class="stems-box"><summary>分轨试听（原唱人声 / 伴奏 / 你的声音）</summary>
+            <div class="stem"><span>原唱人声</span><audio controls preload="none" id="stem-vocals"></audio></div>
+            <div class="stem"><span>伴奏</span><audio controls preload="none" id="stem-inst"></audio></div>
+            <div class="stem"><span>转换后的人声</span><audio controls preload="none" id="stem-conv"></audio></div>
+          </details>
+          <details id="notes-box" class="notes-box hidden"><summary>处理日志</summary><ul id="notes"></ul></details>
+        </div>
+
+        <ul id="job-list" class="job-list"></ul>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>请使用本人声音作为样本；生成结果仅限个人学习与娱乐，请勿用于商业用途，勿侵犯歌曲版权与他人声音权益。</p>
+</footer>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/assets/app.js"></script>
+</body>
+</html>
