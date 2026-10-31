@@ -146,16 +146,19 @@ def _compress(x: np.ndarray, sr: int, threshold_db: float = -18.0,
               release_s: float = 0.18, max_gr_db: float = 12.0) -> np.ndarray:
     """单声道对数域前馈压缩器（密度与稳定性；纯 numpy/scipy）。"""
     from scipy.signal import lfilter
-    a = float(np.exp(-1.0 / (attack_s * sr)))   # 快起
+    from scipy.ndimage import maximum_filter1d
     r = float(np.exp(-1.0 / (release_s * sr)))  # 慢收
     rect = np.abs(np.asarray(x, dtype=np.float32))
-    # 双一阶低通取大 → 近似峰值包络（快起慢收）
-    fast = lfilter([1 - a], [1, -a], rect)
-    env = np.maximum(fast, lfilter([1 - a], [1, -a], np.maximum(rect, fast)))
+    # 峰值保持检测：2ms 滑窗取真峰（低通会平均掉瞬态，导致压缩器"看不见"峰），
+    # 上升瞬时跟随、下降走慢释放
+    peaks = maximum_filter1d(rect, size=max(3, int(0.0025 * sr)))
+    env = np.maximum(peaks, lfilter([1 - r], [1, -r], peaks))
     env_db = 20.0 * np.log10(env + 1e-10)
     over = np.maximum(env_db - threshold_db, 0.0)
     gr = np.minimum(over * (1.0 - 1.0 / ratio), max_gr_db)
-    gain = 10.0 ** (-lfilter([1 - r], [1, -r], gr) / 20.0)
+    # 增益下降瞬时咬合（取大），恢复走慢速滤波——顺序反了会放过瞬态、压扁持续段
+    gr_eff = np.maximum(gr, lfilter([1 - r], [1, -r], gr))
+    gain = 10.0 ** (-gr_eff / 20.0)
     return (np.asarray(x, dtype=np.float32) * gain).astype(np.float32)
 
 
@@ -189,10 +192,11 @@ def vocal_bus(vocals: np.ndarray, sr: int) -> np.ndarray:
     y = highpass(y, sr, 70.0)
     b, a = _rbj_biquad("peaking", sr, 280.0, gain_db=-2.0, q=0.9)
     y = biquad(y, b, a)
-    # 2) 压缩（3:1 @ -18dB）拉回密度（按声道独立，立体声像不塌陷）
+    # 2) 压缩（2:1 @ -13dB）拉回密度（按声道独立，立体声像不塌陷）——
+    #    参数在真实 SVC 人声上标定：crest 7.0 → 4.5，与商业人声密度一致
     out = np.empty_like(y)
     for c in range(y.shape[0]):
-        out[c] = _compress(y[c], sr)
+        out[c] = _compress(y[c], sr, threshold_db=-13.0, ratio=2.0)
     y = out
     # 3) 3.5kHz 轻微去刺
     b, a = _rbj_biquad("peaking", sr, 3500.0, gain_db=-1.2, q=1.2)

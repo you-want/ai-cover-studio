@@ -111,7 +111,15 @@ docs/PLAN.md     # 完整规划与实施方案
 | `VC_SEPARATION_CACHE` | 1 | 分离结果缓存开关（0 关闭） |
 | `VC_CACHE_MAX_GB` | 5 | 分离缓存容量上限（GB），超限按最旧淘汰 |
 | `VC_SEEDVC_STEPS` | 30 | Seed-VC 扩散步数（越大越慢略越好） |
+| `VC_CLOUD_PROVIDER` | （空） | 云端付费 API 引擎：`replicate` / `elevenlabs` |
+| `VC_CLOUD_API_KEY` | （空） | 云端 API 密钥（仅存环境变量，不入库不上传） |
+| `VC_CLOUD_VOICE_ID` | （空） | ElevenLabs Voice ID 或 Replicate 模型 slug（owner/model[:version]） |
+| `VC_CLOUD_EXTRA_JSON` | （空） | Replicate 额外 input 字段（JSON） |
 | `HF_ENDPOINT` | https://hf-mirror.com | HuggingFace 镜像 |
+
+**云端付费 API**：配置以上环境变量后，引擎列表会出现"云端 API · 按量付费"。
+安全设计：`auto` 模式**永不**自动调用付费引擎——只有你明确选中它才产生计费；
+转换结果走同一套混音链（人声总线/电平对齐/母带）。
 
 ## ❓ 常见问题
 

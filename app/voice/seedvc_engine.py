@@ -35,13 +35,14 @@ _SAMPLE_RE = re.compile(r"SAMPLE\s+(\d+)\s*/\s*(\d+)")
 
 
 def _tqdm_fraction(tail: str) -> float | None:
-    m = _SAMPLE_RE.search(tail) or _TQDM_RE.search(tail)
-    if not m:
+    # 取缓冲尾部"最后一个"匹配（缓冲里残留着更早的旧进度，取第一个会卡死不动）
+    ms = _SAMPLE_RE.findall(tail) or _TQDM_RE.findall(tail)
+    if not ms:
         return None
-    total = int(m.group(2))
+    n, total = int(ms[-1][0]), int(ms[-1][1])
     if total <= 0:
         return None
-    return max(0.0, min(1.0, int(m.group(1)) / total))
+    return max(0.0, min(1.0, n / total))
 
 
 def _torch_env() -> dict:

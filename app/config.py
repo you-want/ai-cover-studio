@@ -44,6 +44,13 @@ SEEDVC_DIFFUSION_STEPS = int(os.getenv("VC_SEEDVC_STEPS", "30"))
 # Seed-VC 歌唱模式（SVC，f0-condition）：权重就绪时优先使用，关闭则强制 VC 模式
 SEEDVC_SVC = os.getenv("VC_SEEDVC_SVC", "1") != "0"
 
+# 云端付费 API 引擎（可选；auto 模式永不自动使用，仅用户明确选择时计费）
+CLOUD_PROVIDER = os.getenv("VC_CLOUD_PROVIDER", "")            # replicate / elevenlabs
+CLOUD_API_KEY = os.getenv("VC_CLOUD_API_KEY", "")
+CLOUD_VOICE_ID = os.getenv("VC_CLOUD_VOICE_ID", "")            # elevenlabs Voice ID 或 replicate 模型 slug
+CLOUD_EXTRA_JSON = os.getenv("VC_CLOUD_EXTRA_JSON", "")        # replicate 额外 input 字段（JSON）
+CLOUD_INPUT_KEY = os.getenv("VC_CLOUD_INPUT_KEY", "audio")     # replicate 模型的音频输入字段名
+
 # 国内网络下 huggingface.co 常不可达，模型下载默认走 hf-mirror 镜像
 HF_ENDPOINT = os.getenv("HF_ENDPOINT", "https://hf-mirror.com")
 # 镜像不支持 Xet 协议，禁用后回退普通 HTTP 下载
