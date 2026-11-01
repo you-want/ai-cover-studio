@@ -5,25 +5,59 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>声替 CoverMe · 用你的声音，唱你喜欢的歌</title>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<!-- Han scoped CSS (dark wuxia theme) + project styles -->
+<link rel="stylesheet" href="/assets/han-scoped.css">
 <link rel="stylesheet" href="/assets/style.css">
 </head>
-<body>
-<header>
-  <div class="logo"><img src="/assets/logo.svg" alt="声替 CoverMe" width="34" height="34"><span>声替<i>CoverMe</i></span></div>
+<body data-han-scope data-theme="wuxia">
+
+<a class="han-skip-link" href="#main-content">跳到主要内容</a>
+
+<header class="site-header">
+  <h1 class="sr-only">声替 CoverMe</h1>
+  <div class="logo">
+    <img src="/assets/logo.svg" alt="声替 CoverMe" width="34" height="34">
+    <span>声替<i>CoverMe</i></span>
+  </div>
   <div class="tagline">克隆你的声音 · 翻唱你喜欢的歌 · 全程本地处理，不上传云端</div>
 </header>
 
-<main>
+<main id="main-content">
   <div class="grid">
+
+    <!-- 左侧：步骤 -->
     <div class="col-steps">
 
-      <section class="card">
-        <h2><span class="step-no">1</span>声音样本</h2>
-        <p class="hint">录 10~30 秒清晰人声（安静环境、正常音量，说话或哼唱均可），音色越有特点克隆效果越好。</p>
+      <!-- 步骤 1：声音样本 -->
+      <section class="card step-card" aria-labelledby="step1-title">
+        <span class="han-rivet han-rivet--tl" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--tr" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--bl" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--br" aria-hidden="true"></span>
+        <h2 id="step1-title">
+          <span class="step-seal" aria-hidden="true">一</span>
+          <span class="step-label">声音样本</span>
+        </h2>
+        <p class="hint">录 10~30 秒清晰人声。音色提取只认"干净的声音"——按下面的教练来，效果翻倍。</p>
+        <details class="rec-guide" open>
+          <summary>📖 录音教练 · 跟着读这 4 句（再哼 5 秒）</summary>
+          <ol class="rec-script">
+            <li>「他告诉我，天空很高，海也很蓝。」</li>
+            <li>「白色的小鸟飞过了湖泊和森林。」</li>
+            <li>「我知道你会来，所以我一直在等。」</li>
+            <li>「雨后的空气里，有泥土和青草的味道。」</li>
+            <li>🎵 最后，轻声哼 5 秒你喜欢的旋律（不用唱词）</li>
+          </ol>
+          <p class="rec-tips">🎙 离麦克风 10~20cm ｜ 安静房间 ｜ 平时说话的音量，别喊 ｜ 五音不全没关系——翻唱的音准来自原唱旋律，你只需要提供音色</p>
+        </details>
         <div class="recorder">
-          <button id="btn-record" class="btn primary">🎙 开始录音</button>
+          <button type="button" id="btn-record" class="btn primary btn-seal">🎙 开始录音</button>
           <span id="rec-timer" class="timer hidden">00:00</span>
           <span id="rec-hint" class="rec-hint"></span>
+        </div>
+        <div class="level-meter hidden" id="level-meter">
+          <div class="level-track"><div id="level-fill"></div></div>
+          <span id="level-hint"></span>
         </div>
         <audio id="rec-preview" controls class="hidden"></audio>
         <div class="or"><span>或上传音频文件</span></div>
@@ -31,21 +65,55 @@
         <div id="sample-list" class="sample-list"></div>
       </section>
 
-      <section class="card">
-        <h2><span class="step-no">2</span>选择歌曲</h2>
+      <!-- 水墨分隔线 -->
+      <div class="han-divider-ink han-divider-ink--seal" role="separator" aria-label="分隔">
+        <span class="han-divider-dot" aria-hidden="true">声</span>
+      </div>
+
+      <!-- 步骤 2：选择歌曲 -->
+      <section class="card step-card" aria-labelledby="step2-title">
+        <span class="han-rivet han-rivet--tl" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--tr" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--bl" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--br" aria-hidden="true"></span>
+        <h2 id="step2-title">
+          <span class="step-seal" aria-hidden="true">二</span>
+          <span class="step-label">选择歌曲</span>
+        </h2>
         <div id="drop" class="drop">
-          <div class="drop-inner">🎵 拖拽歌曲到这里（可多首），或<span class="link">点击选择</span><br>
-            <small>支持 mp3 / wav / m4a / flac 等，建议 10 分钟以内</small></div>
+          <div class="drop-inner">
+            <span class="drop-icon" aria-hidden="true">♪</span><br>
+            拖拽歌曲到这里（可多首），或<span class="link">点击选择</span><br>
+            <small>支持 mp3 / wav / m4a / flac 等，建议 10 分钟以内</small>
+          </div>
         </div>
         <input type="file" id="song-file" accept="audio/*" multiple class="hidden">
+        <label for="song-file" class="sr-only">选择歌曲文件</label>
         <div id="song-list" class="song-list hidden"></div>
-        <button id="btn-smart" class="btn smart-match" disabled>🎯 智能匹配音色（小白一键）</button>
+        <button type="button" id="btn-smart" class="btn smart-match btn-seal" disabled>
+          <span class="btn-seal-text">🎯 智能匹配音色</span>
+          <small>小白一键</small>
+        </button>
         <div id="smart-result" class="smart-result hidden" aria-live="polite"></div>
-        <label class="field"><span>作品名称（可选，批量时作为前缀）</span><input id="title" placeholder="默认取歌曲文件名"></label>
+        <label class="field"><span>作品名称（可选，批量时作为前缀）</span>
+          <input id="title" placeholder="默认取歌曲文件名"></label>
       </section>
 
-      <section class="card">
-        <h2><span class="step-no">3</span>生成设置</h2>
+      <!-- 水墨分隔线 -->
+      <div class="han-divider-ink han-divider-ink--seal" role="separator" aria-label="分隔">
+        <span class="han-divider-dot" aria-hidden="true">调</span>
+      </div>
+
+      <!-- 步骤 3：生成设置 -->
+      <section class="card step-card" aria-labelledby="step3-title">
+        <span class="han-rivet han-rivet--tl" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--tr" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--bl" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--br" aria-hidden="true"></span>
+        <h2 id="step3-title">
+          <span class="step-seal" aria-hidden="true">三</span>
+          <span class="step-label">生成设置</span>
+        </h2>
         <div class="group-label">声音引擎</div>
         <div id="engine-list" class="opt-list"><div class="loading">检测引擎中…</div></div>
         <div class="group-label">人声分离</div>
@@ -62,19 +130,32 @@
           <label class="toggle"><input type="checkbox" id="auto-balance" checked><span class="switch"></span>人声电平自动对齐</label>
           <label class="toggle"><input type="checkbox" id="denoise-gate" checked><span class="switch"></span>静音段清理（去句间残噪）</label>
         </div>
-        <button id="btn-go" class="btn primary big" disabled>🚀 生成翻唱</button>
+        <button type="button" id="btn-go" class="btn primary big btn-seal" disabled>
+          <span class="btn-seal-text">🚀 生成翻唱</span>
+        </button>
         <p id="go-hint" class="hint center">先完成第 1、2 步</p>
       </section>
 
     </div>
 
+    <!-- 右侧：任务列 -->
     <div class="col-jobs">
-      <section class="card">
-        <h2>🎧 我的翻唱</h2>
+      <section class="card job-card" aria-labelledby="jobs-title">
+        <span class="han-rivet han-rivet--tl" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--tr" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--bl" aria-hidden="true"></span>
+        <span class="han-rivet han-rivet--br" aria-hidden="true"></span>
+        <h2 id="jobs-title">
+          <span class="job-stamp" aria-hidden="true">翻</span>
+          <span class="step-label">我的翻唱</span>
+        </h2>
 
         <div id="active-box" class="hidden">
-          <div class="job-head"><b id="active-title"></b><span id="active-status" class="badge"></span>
-            <button id="btn-cancel" class="btn ghost small hidden">✕ 取消</button></div>
+          <div class="job-head">
+            <b id="active-title"></b>
+            <span id="active-status" class="badge"></span>
+            <button type="button" id="btn-cancel" class="btn ghost small hidden">✕ 取消</button>
+          </div>
           <div class="bar"><div id="bar-fill"></div></div>
           <div id="job-liveness" class="liveness hidden" aria-live="polite"></div>
           <div class="stage-row" id="stage-row"></div>
@@ -85,9 +166,11 @@
           <h3 id="result-title"></h3>
           <audio id="result-audio" controls></audio>
           <div class="row">
-            <a id="btn-download" class="btn primary" download>⬇️ 下载成品</a>
-            <button id="btn-again" class="btn ghost">再唱一首</button>
-            <button id="btn-delete-cover" class="btn ghost del">🗑 删除</button>
+            <a id="btn-download" class="btn primary btn-seal" download>
+              <span class="btn-seal-text">⬇️ 下载成品</span>
+            </a>
+            <button type="button" id="btn-again" class="btn ghost">再唱一首</button>
+            <button type="button" id="btn-delete-cover" class="btn ghost del">🗑 删除</button>
           </div>
           <details class="stems-box"><summary>分轨试听（原唱人声 / 伴奏 / 你的声音）</summary>
             <div class="stem"><span>原唱人声</span><audio controls preload="none" id="stem-vocals"></audio></div>
@@ -100,14 +183,18 @@
         <ul id="job-list" class="job-list"></ul>
       </section>
     </div>
+
   </div>
 </main>
 
 <footer>
+  <div class="han-divider-ink han-divider-ink--seal" role="separator" aria-label="分隔" style="margin-bottom:16px">
+    <span class="han-divider-dot" aria-hidden="true">印</span>
+  </div>
   <p>请使用本人声音作为样本；生成结果仅限个人学习与娱乐，请勿用于商业用途，勿侵犯歌曲版权与他人声音权益。</p>
 </footer>
 
-<div id="toast" class="toast hidden"></div>
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 <script src="/assets/app.js"></script>
 </body>
 </html>

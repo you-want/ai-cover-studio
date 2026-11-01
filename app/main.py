@@ -120,9 +120,15 @@ async def upload_sample(file: UploadFile = File(...)):
         raise HTTPException(400, "录音内容是静音——请检查麦克风权限/设备后重录，"
                                  "或改用「上传音频文件」（10~30 秒清晰人声）")
     name = Path(_safe_upload_name(file.filename)).stem or "我的声音"
+    # 录音质量体检（不拦截，只反馈：爆音/过轻给出改进建议）
+    import numpy as np
+    data, _ = load_wav(ref)
+    clipped_pct = float((np.abs(data) > 0.995).mean() * 100)
+    rms = float(np.sqrt(np.mean(data ** 2))) if data.size else 0.0
+    quality = "clipped" if clipped_pct > 2 else ("quiet" if rms < 0.01 else "good")
     store.add_sample(sid, name, ref, dur)
-    log.info("声音样本上传: %s (%s, %.1fs)", sid, name, dur)
-    return {"id": sid, "name": name, "duration": round(dur, 1)}
+    log.info("声音样本上传: %s (%s, %.1fs, 质量=%s)", sid, name, dur, quality)
+    return {"id": sid, "name": name, "duration": round(dur, 1), "quality": quality}
 
 
 @app.delete("/api/voice-samples/{sid}")

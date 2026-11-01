@@ -61,6 +61,51 @@ let recChunks = [];
 let recTimerInt = null;
 let recSeconds = 0;
 
+/* ---------------- 录音教练：实时电平表 + 体检 ---------------- */
+
+let recAudioCtx = null;
+let recStats = { totalFrames: 0, clippedFrames: 0, maxRms: 0 };
+
+function startLevelMeter(stream) {
+  try {
+    recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = recAudioCtx.createMediaStreamSource(stream);
+    const analyser = recAudioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    src.connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+    recStats = { totalFrames: 0, clippedFrames: 0, maxRms: 0 };
+    $("#level-meter").classList.remove("hidden");
+    const loop = () => {
+      if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0, peak = 0;
+      for (let i = 0; i < buf.length; i++) {
+        sum += buf[i] * buf[i];
+        const a = Math.abs(buf[i]);
+        if (a > peak) peak = a;
+      }
+      const rms = Math.sqrt(sum / buf.length);
+      recStats.totalFrames += 1;
+      if (peak >= 0.99) recStats.clippedFrames += 1;
+      if (rms > recStats.maxRms) recStats.maxRms = rms;
+      const pct = Math.min(100, Math.round(rms * 320));
+      $("#level-fill").style.width = pct + "%";
+      $("#level-fill").style.background =
+        pct > 88 ? "var(--err)" : pct < 8 ? "#eab308" : "var(--ok)";
+      $("#level-hint").textContent =
+        pct > 88 ? "🔴 太响了，会爆音" : pct < 8 ? "🟡 太轻了，靠近点" : "🟢 音量刚刚好";
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  } catch (_) { /* 电平表失败不影响录音 */ }
+}
+
+function stopLevelMeter() {
+  $("#level-meter").classList.add("hidden");
+  if (recAudioCtx) { recAudioCtx.close().catch(() => {}); recAudioCtx = null; }
+}
+
 $("#btn-record").addEventListener("click", async () => {
   if (mediaRecorder && mediaRecorder.state === "recording") {
     mediaRecorder.stop();
@@ -77,9 +122,11 @@ $("#btn-record").addEventListener("click", async () => {
     : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
   mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
   recChunks = [];
+  startLevelMeter(stream);
   mediaRecorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
   mediaRecorder.onstop = async () => {
     stream.getTracks().forEach((t) => t.stop());
+    stopLevelMeter();
     clearInterval(recTimerInt);
     $("#btn-record").textContent = "🎙 开始录音";
     $("#btn-record").classList.remove("recording");
@@ -89,6 +136,12 @@ $("#btn-record").addEventListener("click", async () => {
       toast(`只录了 ${recSeconds} 秒，太短啦，请至少录 10 秒`, true);
       recSeconds = 0;
       return;
+    }
+    // 录音教练体检：爆音 / 声音太小 → 录完即时提醒
+    if (recStats.clippedFrames > recStats.totalFrames * 0.02) {
+      toast("⚠️ 检测到较多爆音——离麦克风远一点、音量小一点，重录效果更好", true);
+    } else if (recStats.maxRms < 0.02) {
+      toast("⚠️ 声音太小（房间噪比人声还响）——靠近麦克风重录，效果更好", true);
     }
     const ext = mediaRecorder.mimeType.includes("mp4") ? "m4a" : "webm";
     const file = new File(recChunks, `我的录音.${ext}`, { type: mediaRecorder.mimeType || "audio/webm" });
@@ -115,6 +168,8 @@ async function uploadVoice(file) {
   try {
     const r = await api("/api/voice-samples", { method: "POST", body: fd });
     state.sampleId = r.id;
+    if (r.quality === "clipped") toast("⚠️ 这段录音爆音较多，建议重录一版（音色会受损）", true);
+    else if (r.quality === "quiet") toast("⚠️ 这段录音声音太轻，建议重录一版", true);
     // 试听始终走服务端存下的 ref.wav（持久 URL），避免 Blob URL 刷新后失效
     $("#rec-preview").src = `/api/voice-samples/${r.id}/preview`;
     $("#rec-preview").classList.remove("hidden");
