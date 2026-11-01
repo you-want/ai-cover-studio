@@ -349,6 +349,13 @@ def index():
                         headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/favicon.svg")
+def favicon():
+    return FileResponse(config.WEB_DIR / "favicon.svg",
+                        media_type="image/svg+xml",
+                        headers={"Cache-Control": "no-cache"})
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=config.HOST, port=config.PORT)
