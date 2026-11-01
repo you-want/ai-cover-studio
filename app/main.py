@@ -150,6 +150,26 @@ def sample_preview(sid: str):
 
 # ---------------------------------------------------------------- 翻唱任务
 
+@app.post("/api/analyze-song")
+async def analyze_song_endpoint(file: UploadFile = File(...)):
+    """智能匹配：分析歌曲（分离+音域/亮度），自动推荐音色与设置。约 1~2 分钟。"""
+    ext = Path(file.filename or "song.mp3").suffix.lower() or ".mp3"
+    if ext not in config.SUPPORTED_AUDIO_EXT:
+        raise HTTPException(400, f"不支持的音频格式: {ext}")
+    tmp = config.DATA_DIR / "tmp" / f"analyze_upload_{secrets.token_hex(4)}{ext}"
+    tmp.parent.mkdir(parents=True, exist_ok=True)
+    _save_upload(file, tmp, config.MAX_UPLOAD_MB * 1024 * 1024)
+    try:
+        from .analysis import analyze_song
+        result = analyze_song(tmp, store.list_samples())
+        log.info("智能匹配: %s → %s", Path(file.filename or "").name, result.get("voice_name"))
+        return result
+    except Exception as e:
+        raise HTTPException(500, f"分析失败: {e}")
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 @app.post("/api/covers")
 async def create_cover(
     song: UploadFile = File(...),

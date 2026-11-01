@@ -10,3 +10,4 @@ __pycache__/
 checkpoints/
 demo/output*/
 demo/demo_song.wav
+/*.mp3

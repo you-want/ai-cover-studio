@@ -136,6 +136,16 @@ main { max-width: 1180px; margin: 20px auto 40px; padding: 0 18px; }
 .field.slider b { color: var(--accent2); font-variant-numeric: tabular-nums; }
 input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent1); }
 
+/* 智能匹配 */
+.btn.smart-match { width: 100%; margin-top: 12px; background: linear-gradient(90deg, var(--accent1), var(--accent2)); color: #fff; border: none; }
+.btn.smart-match:disabled { opacity: .5; }
+.smart-result {
+  margin-top: 10px; padding: 12px 14px; border-radius: 10px;
+  background: var(--card2); border: 1px solid var(--line); font-size: 13px; line-height: 1.7;
+}
+.smart-result .smart-reasons { color: var(--muted); margin: 6px 0 10px; }
+.smart-result .smart-actions { margin-top: 8px; }
+
 /* 任务存活反馈 */
 .liveness {
   display: flex; align-items: center; gap: 8px;

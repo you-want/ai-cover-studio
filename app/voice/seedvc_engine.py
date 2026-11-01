@@ -151,9 +151,15 @@ class SeedVCEngine(BaseVoiceEngine):
         proc = subprocess.Popen(cmd, cwd=str(repo),
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 env=_torch_env())
+        # inference.py 按 30s 分块（后续每块推进 25s）逐块扩散：进度 = (已完成块 + 块内进度) / 总块数
+        from ..audio.io import wav_duration
+        dur_s = wav_duration(source_vocal)
+        n_chunks = 1 if dur_s <= 30 else int(np.ceil((dur_s - 30) / 25)) + 1
+        chunk_i = 0
+        last_frac = -1.0
+        last_overall = 0.0
         fd = proc.stdout.fileno()  # type: ignore[union-attr]
         tail = b""
-        last_frac = -1.0
         last_output = time.time()
         hard_deadline = time.time() + 4 * 3600
         while True:
@@ -172,9 +178,15 @@ class SeedVCEngine(BaseVoiceEngine):
             last_output = time.time()
             tail = (tail + chunk)[-8192:]
             frac = _tqdm_fraction(tail.decode("utf-8", "ignore"))
-            if frac is not None and frac > last_frac:
-                last_frac = frac
-                progress(0.1 + 0.72 * frac, f"扩散推理 {int(frac * 100)}%")
+            if frac is None:
+                continue
+            if frac + 0.05 < last_frac:  # 进度大幅回落 = 进入下一个分块
+                chunk_i += 1
+            last_frac = frac
+            overall = min(1.0, (chunk_i + frac) / n_chunks)
+            if overall > last_overall:
+                last_overall = overall
+                progress(0.1 + 0.72 * overall, f"扩散推理 {int(overall * 100)}%")
         code = proc.wait()
         if code != 0:
             raise RuntimeError(f"Seed-VC 推理失败: {tail.decode('utf-8', 'ignore').strip()[-600:]}")

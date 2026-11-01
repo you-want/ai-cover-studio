@@ -207,12 +207,14 @@ function addSongs(files) {
   }
   renderSongs();
   updateGoButton();
+  setSmartEnabled();
 }
 
 function removeSong(idx) {
   state.songs.splice(idx, 1);
   renderSongs();
   updateGoButton();
+  setSmartEnabled();
 }
 
 function renderSongs() {
@@ -229,6 +231,47 @@ function renderSongs() {
     div.querySelector("button").addEventListener("click", () => removeSong(i));
     box.appendChild(div);
   }
+}
+
+/* ---------------- 智能匹配（懒人模式） ---------------- */
+
+$("#btn-smart").addEventListener("click", async () => {
+  if (!state.songs.length) { toast("先选择一首歌", true); return; }
+  const box = $("#smart-result");
+  box.classList.remove("hidden");
+  box.innerHTML = "🎵 正在分析歌曲（人声分离 + 音域/亮度测定，约 1~2 分钟）…";
+  $("#btn-smart").disabled = true;
+  const fd = new FormData();
+  fd.append("file", state.songs[0]);
+  try {
+    const rec = await api("/api/analyze-song", { method: "POST", body: fd });
+    if (!rec.voice_id) {
+      box.innerHTML = `<b>未能自动匹配</b><br>${(rec.reasons || []).join("<br>")}`;
+      return;
+    }
+    box.innerHTML = `<b>🎯 推荐「${rec.voice_name}」</b>
+      <div class="smart-reasons">${rec.reasons.map((r) => `· ${r}`).join("<br>")}</div>
+      <div class="smart-actions">
+        <button class="btn primary btn-sm" id="btn-apply-rec">✓ 应用推荐并选中</button>
+      </div>`;
+    $("#btn-apply-rec").addEventListener("click", () => {
+      state.sampleId = rec.voice_id;
+      state.engine = rec.engine;
+      loadSamples();
+      loadEngines();
+      updateGoButton();
+      toast("已应用推荐设置，直接点「生成翻唱」即可");
+      box.classList.add("hidden");
+    });
+  } catch (e) {
+    box.innerHTML = `分析失败：${e.message}`;
+  } finally {
+    $("#btn-smart").disabled = false;
+  }
+});
+
+function setSmartEnabled() {
+  $("#btn-smart").disabled = !state.songs.length;
 }
 
 /* ---------------- 引擎与设置 ---------------- */
