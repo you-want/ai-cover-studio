@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS samples (
     name TEXT NOT NULL,
     path TEXT NOT NULL,
     duration REAL NOT NULL DEFAULT 0,
+    kind TEXT NOT NULL DEFAULT 'user',
     created_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS jobs (
@@ -48,7 +49,17 @@ class Store:
         self._db.row_factory = sqlite3.Row
         with self._lock:
             self._db.executescript(_SCHEMA)
+            self._migrate()
             self._db.commit()
+
+    def _migrate(self):
+        """老库升级：补 kind 列，并把内置参考音色标记出来。"""
+        cols = [r[1] for r in self._db.execute("PRAGMA table_info(samples)").fetchall()]
+        if "kind" not in cols:
+            self._db.execute("ALTER TABLE samples ADD COLUMN kind TEXT NOT NULL DEFAULT 'user'")
+            self._db.execute(
+                "UPDATE samples SET kind='builtin' "
+                "WHERE name LIKE '参考音色%' OR name LIKE '烟嗓%'")
 
     def _exec(self, sql: str, params: tuple = ()):
         with self._lock:
@@ -58,9 +69,12 @@ class Store:
 
     # ---------- 声音样本 ----------
 
-    def add_sample(self, sid: str, name: str, path, duration: float):
-        self._exec("INSERT INTO samples (id, name, path, duration, created_at) VALUES (?,?,?,?,?)",
-                   (sid, name, str(path), float(duration), time.time()))
+    def add_sample(self, sid: str, name: str, path, duration: float, kind: str = "user"):
+        self._exec("INSERT INTO samples (id, name, path, duration, kind, created_at) VALUES (?,?,?,?,?,?)",
+                   (sid, name, str(path), float(duration), kind, time.time()))
+
+    def rename_sample(self, sid: str, name: str):
+        self._exec("UPDATE samples SET name=? WHERE id=?", (name, sid))
 
     def get_sample(self, sid: str) -> dict | None:
         row = self._exec("SELECT * FROM samples WHERE id=?", (sid,)).fetchone()

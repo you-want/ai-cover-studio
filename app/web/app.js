@@ -195,39 +195,79 @@ async function loadSamples() {
     if (samples.length && !samples.some((s) => s.id === state.sampleId)) {
       state.sampleId = samples[0].id;
     }
-    for (const s of samples) {
-      const div = document.createElement("div");
-      div.className = "sample" + (s.id === state.sampleId ? " selected" : "");
-      div.innerHTML = `<span class="dot"></span>
-        <span class="meta"><div class="name"></div><div class="dur">${s.duration} 秒 · ${fmtTime(s.created_at)}</div></span>
-        <button class="play" title="试听">▶</button>
-        <button class="del" title="删除">✕</button>`;
-      div.querySelector(".name").textContent = s.name;
-      div.addEventListener("click", () => {
-        state.sampleId = s.id;
-        loadSamples();
-        updateGoButton();
-      });
-      div.querySelector(".play").addEventListener("click", (e) => {
-        e.stopPropagation();
-        const a = $("#rec-preview");
-        a.src = `/api/voice-samples/${s.id}/preview`;
-        a.classList.remove("hidden");
-        a.currentTime = 0;
-        a.play().catch(() => {});
-      });
-      div.querySelector(".del").addEventListener("click", async (e) => {
-        e.stopPropagation();
-        try {
-          await api(`/api/voice-samples/${s.id}`, { method: "DELETE" });
-          if (state.sampleId === s.id) state.sampleId = null;
-          await loadSamples();
+    const groups = [
+      { title: "🎵 系统音色库（选一个就能唱）", kind: "builtin",
+        items: samples.filter((s) => s.kind === "builtin"),
+        empty: "" },
+      { title: "🎤 我的录音（✏️ 可改名）", kind: "user",
+        items: samples.filter((s) => s.kind !== "builtin"),
+        empty: "还没有自己的录音——录一段或上传，支持改名" },
+    ];
+    let any = false;
+    for (const g of groups) {
+      const h = document.createElement("div");
+      h.className = "sample-group-title";
+      h.textContent = g.title;
+      list.appendChild(h);
+      if (!g.items.length && g.empty) {
+        const hint = document.createElement("div");
+        hint.className = "loading";
+        hint.textContent = g.empty;
+        list.appendChild(hint);
+      }
+      for (const s of g.items) {
+        any = true;
+        const isUser = g.kind === "user";
+        const div = document.createElement("div");
+        div.className = "sample" + (s.id === state.sampleId ? " selected" : "");
+        div.innerHTML = `<span class="dot"></span>
+          <span class="meta"><div class="name"></div><div class="dur">${s.duration} 秒 · ${fmtTime(s.created_at)}</div></span>
+          ${isUser ? '<button class="rename" title="改名">✏️</button>' : ""}
+          <button class="play" title="试听">▶</button>
+          ${isUser ? '<button class="del" title="删除">✕</button>' : ""}`;
+        div.querySelector(".name").textContent = s.name;
+        div.addEventListener("click", () => {
+          state.sampleId = s.id;
+          loadSamples();
           updateGoButton();
-        } catch (err) { toast(err.message, true); }
-      });
-      list.appendChild(div);
+        });
+        div.querySelector(".play").addEventListener("click", (e) => {
+          e.stopPropagation();
+          const a = $("#rec-preview");
+          a.src = `/api/voice-samples/${s.id}/preview`;
+          a.classList.remove("hidden");
+          a.currentTime = 0;
+          a.play().catch(() => {});
+        });
+        if (isUser) {
+          div.querySelector(".rename").addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const name = prompt("给这个录音起个名字：", s.name);
+            if (!name || !name.trim()) return;
+            try {
+              await api(`/api/voice-samples/${s.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name.trim() }),
+              });
+              s.name = name.trim();
+              await loadSamples();
+            } catch (err) { toast(err.message, true); }
+          });
+          div.querySelector(".del").addEventListener("click", async (e) => {
+            e.stopPropagation();
+            try {
+              await api(`/api/voice-samples/${s.id}`, { method: "DELETE" });
+              if (state.sampleId === s.id) state.sampleId = null;
+              await loadSamples();
+              updateGoButton();
+            } catch (err) { toast(err.message, true); }
+          });
+        }
+        list.appendChild(div);
+      }
     }
-    if (!samples.length) {
+    if (!any) {
       list.innerHTML = `<div class="loading">还没有声音样本，先录一段吧</div>`;
       state.sampleId = null;
     }

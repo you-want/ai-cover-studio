@@ -9,7 +9,7 @@ import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -126,9 +126,27 @@ async def upload_sample(file: UploadFile = File(...)):
     clipped_pct = float((np.abs(data) > 0.995).mean() * 100)
     rms = float(np.sqrt(np.mean(data ** 2))) if data.size else 0.0
     quality = "clipped" if clipped_pct > 2 else ("quiet" if rms < 0.01 else "good")
-    store.add_sample(sid, name, ref, dur)
+    store.add_sample(sid, name, ref, dur, kind="user")
     log.info("声音样本上传: %s (%s, %.1fs, 质量=%s)", sid, name, dur, quality)
-    return {"id": sid, "name": name, "duration": round(dur, 1), "quality": quality}
+    return {"id": sid, "name": name, "duration": round(dur, 1), "quality": quality,
+            "kind": "user"}
+
+
+@app.patch("/api/voice-samples/{sid}")
+def rename_sample(sid: str, payload: dict = Body(...)):
+    """重命名用户自己的录音（系统音色库不支持改名）。"""
+    if not _ID_RE.match(sid):
+        raise HTTPException(400, "id 不合法")
+    sample = store.get_sample(sid)
+    if not sample:
+        raise HTTPException(404, "样本不存在")
+    if sample.get("kind") == "builtin":
+        raise HTTPException(400, "系统音色不支持重命名")
+    name = str(payload.get("name") or "").strip()[:40]
+    if not name:
+        raise HTTPException(400, "名字不能为空")
+    store.rename_sample(sid, name)
+    return {"ok": True, "name": name}
 
 
 @app.delete("/api/voice-samples/{sid}")

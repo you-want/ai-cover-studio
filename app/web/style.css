@@ -625,3 +625,11 @@ footer p { color: var(--han-color-text-tertiary, #6c6a63); font-size: 12px; line
 .level-track { flex: 1; height: 10px; border-radius: 999px; background: var(--card2); overflow: hidden; }
 .level-track > div { height: 100%; width: 0; border-radius: 999px; background: var(--ok); transition: width .1s; }
 .level-meter span { font-size: 12px; color: var(--muted); flex: none; min-width: 9em; }
+
+/* 样本分组（系统音色库 / 我的录音） */
+.sample-group-title {
+  font-size: 12px; color: var(--muted); letter-spacing: 1px;
+  margin: 14px 0 6px;
+}
+.sample .rename { background: none; border: none; cursor: pointer; font-size: 13px; flex: none; opacity: .7; }
+.sample .rename:hover { opacity: 1; }

@@ -145,3 +145,26 @@ def test_cancel_queued_job(client):
             break
         time.sleep(0.4)
     client.delete(f"/api/covers/{first}")
+
+
+def test_upload_kind_and_rename(client):
+    """上传的样本 kind=user，可改名；系统音色不可改名。"""
+    from app.main import store
+    r = client.post("/api/voice-samples",
+                    files={"file": ("ref.wav", make_sample_wav_bytes(8.0, 200.0), "audio/wav")})
+    sid = r.json()["id"]
+    assert r.json()["kind"] == "user" or client.get("/api/voice-samples").json()[0]["kind"] == "user"
+
+    r = client.patch(f"/api/voice-samples/{sid}", json={"name": "我的摇滚demo"})
+    assert r.status_code == 200 and r.json()["name"] == "我的摇滚demo"
+    names = [s["name"] for s in client.get("/api/voice-samples").json()]
+    assert "我的摇滚demo" in names
+
+    # 内置音色：直接入库一条 kind=builtin，改名应被拒绝
+    from conftest import make_sample_wav_bytes as mk
+    import io, soundfile as sf
+    store.add_sample("builtin01", "参考音色·测试", "data/samples/builtin01/ref.wav", 10.0, kind="builtin")
+    r = client.patch("/api/voice-samples/builtin01", json={"name": "改名尝试"})
+    assert r.status_code == 400
+
+    client.delete(f"/api/voice-samples/{sid}")
