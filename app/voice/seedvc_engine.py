@@ -21,6 +21,8 @@ import time
 import uuid
 from pathlib import Path
 
+import numpy as np
+
 from .. import config
 from ..audio.dsp import peak_normalize, pitch_shift, resample, to_stereo
 from ..audio.io import load_wav, save_wav

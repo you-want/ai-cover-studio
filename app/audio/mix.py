@@ -141,6 +141,82 @@ def control_vocal_peaks(vocals: np.ndarray, sr: int, ceiling: float = 0.88) -> t
 
 # ---------------------------------------------------------------- 人声总线
 
+def match_spectral_envelope(converted: np.ndarray, source: np.ndarray, sr: int,
+                            n_bands: int = 24, max_boost_db: float = 6.0,
+                            max_cut_db: float = -9.0, strength: float = 0.7) -> np.ndarray:
+    """频谱包络匹配：把转换人声的分频段能量对齐到原唱人声。
+
+    治"转换人声发闷/低频浑浊"的根治方案——不再手调静态 EQ，而是按
+    对数频段测算两者能量差，生成 FIR 修正滤波器。仅在原唱"正在演唱"
+    的片段测算（避开静音段污染）；每个频段限幅防止过度矫正；
+    高频模型缺失区（能量≈0）不强行拉起，避免放大噪声；
+    strength<1 做部分矫正（相邻频段测量互相干扰，一次拉满容易过冲）。
+    """
+    c = np.asarray(converted, dtype=np.float32)
+    s = np.asarray(source, dtype=np.float32)
+    n = max(c.shape[-1], s.shape[-1])
+    c = pad_or_trim(c, n)
+    s = pad_or_trim(s, n)
+    mono_c = to_mono(c)
+    mono_s = to_mono(s)
+
+    # 活跃掩码：只在原唱演唱处测算（0.5 下限保留过渡，避免硬切）
+    mask = vocal_activity_mask(s, sr)
+
+    nfft = 2048
+    hop = nfft // 2
+    freqs = np.fft.rfftfreq(nfft, 1.0 / sr)
+    # 对数频段边界：40Hz → min(20kHz, sr/2)
+    f_lo, f_hi = 40.0, min(20000.0, sr / 2 - 1)
+    edges = np.geomspace(f_lo, f_hi, n_bands + 1)
+
+    def band_energy(spec: np.ndarray, fr: np.ndarray) -> np.ndarray:
+        e = np.empty(n_bands)
+        for i in range(n_bands):
+            m = (fr >= edges[i]) & (fr < edges[i + 1])
+            e[i] = float(np.sum(spec[m] ** 2)) + 1e-12
+        return e
+
+    # 分帧累计活跃区频段能量
+    acc_c = np.zeros(n_bands)
+    acc_s = np.zeros(n_bands)
+    win = np.hanning(nfft).astype(np.float64)
+    for a in range(0, n - nfft + 1, hop):
+        mc = mask[a:a + nfft]
+        if mc.mean() < 0.5:  # 只统计过半活跃的帧
+            continue
+        w = (win * mc).astype(np.float64)
+        spec_c = np.abs(np.fft.rfft(mono_c[a:a + nfft] * w)) ** 2
+        spec_s = np.abs(np.fft.rfft(mono_s[a:a + nfft] * w)) ** 2
+        acc_c += band_energy(spec_c, freqs)
+        acc_s += band_energy(spec_s, freqs)
+
+    # 频段增益（限幅 + 带间平滑 + 部分矫正强度）
+    gain_db = 10.0 * np.log10(acc_s / np.maximum(acc_c, 1e-12))
+    gain_db = np.clip(gain_db, max_cut_db, max_boost_db) * strength
+    kernel3 = np.ones(3) / 3.0
+    gain_db = np.convolve(gain_db, kernel3, mode="same")
+    # 高频缺失区保护：转换信号该频段能量过低（信噪比差）则不提升
+    absent = acc_c < 1e-9
+    gain_db = np.where(absent, np.minimum(gain_db, 0.0), gain_db)
+
+    # 增益曲线 → FIR 核（线性插值到 rfft 频点；零相位核需循环移位到中心再窗化，
+    # 否则窗函数会把对称核的两翼削掉，滤波器退化为大衰减低通——实测教训）
+    resp_db = np.interp(freqs, (edges[:-1] + edges[1:]) / 2, gain_db,
+                        left=gain_db[0], right=gain_db[-1])
+    resp = 10.0 ** (resp_db / 20.0)
+    full = np.concatenate([resp, resp[-2:0:-1]])
+    kernel = np.real(np.fft.ifft(full))
+    kernel = np.roll(kernel, nfft // 2)
+    kernel = kernel * np.hanning(len(kernel))
+    kernel = (kernel / np.sum(np.abs(kernel))).astype(np.float32)
+
+    out = np.empty_like(c)
+    for ch in range(c.shape[0]):
+        out[ch] = np.convolve(c[ch], kernel, mode="same").astype(np.float32)
+    return out
+
+
 def _compress(x: np.ndarray, sr: int, threshold_db: float = -18.0,
               ratio: float = 3.0, attack_s: float = 0.015,
               release_s: float = 0.18, max_gr_db: float = 12.0) -> np.ndarray:
@@ -206,4 +282,5 @@ def vocal_bus(vocals: np.ndarray, sr: int) -> np.ndarray:
 
 
 __all__ = ["mix_tracks", "master", "vocal_activity_mask", "gate_to_source",
-           "auto_vocal_gain", "control_vocal_peaks", "vocal_bus"]
+           "auto_vocal_gain", "control_vocal_peaks", "vocal_bus",
+           "match_spectral_envelope"]

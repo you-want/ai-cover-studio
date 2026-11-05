@@ -39,6 +39,9 @@ CACHE_MAX_GB = float(os.getenv("VC_CACHE_MAX_GB", "5"))
 DEREVERB_ENABLED = os.getenv("VC_DEREVEB", "1") != "0"
 AUDIO_SEPARATOR_DIR = MODELS_DIR / "audio-separator"
 
+# 频谱包络匹配：把转换人声分频段能量对齐到原唱人声（治发闷的根治方案）
+SPECTRAL_MATCH = os.getenv("VC_SPECTRAL_MATCH", "1") != "0"
+
 # Seed-VC 扩散步数（CPU 建议 30；越大质量略好但线性变慢）
 SEEDVC_DIFFUSION_STEPS = int(os.getenv("VC_SEEDVC_STEPS", "30"))
 # Seed-VC 歌唱模式（SVC，f0-condition）：权重就绪时优先使用，关闭则强制 VC 模式

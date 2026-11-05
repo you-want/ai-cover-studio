@@ -18,7 +18,7 @@ from . import config
 from .audio.dsp import fade, hf_energy_ratio, resample, to_stereo
 from .audio.io import decode_to_wav, export_mp3, load_wav, save_wav, wav_duration
 from .audio.mix import (auto_vocal_gain, control_vocal_peaks, gate_to_source,
-                        master, mix_tracks, vocal_bus)
+                        master, match_spectral_envelope, mix_tracks, vocal_bus)
 from .separation import SeparationResult, resolve_separator
 from .separation import cache as sep_cache
 from .separation.center_extract import CenterExtractSeparator
@@ -189,12 +189,27 @@ def _execute(*, song_path: Path, ref_wav: Path, engine_name: str, separator_name
     if denoise_gate:
         progress(STAGES[4], 0.2)
         try:
-            vocals, gated_pct = gate_to_source(vocals, src_vocals, sr)
-            if gated_pct > 1.0:
-                notes.append(f"静音段清理：已抑制句间非演唱片段（约 {gated_pct:.0f}% 时长），"
-                             "去除转换残留噪声")
+            from .audio.mix import vocal_activity_mask
+            active_pct = float(vocal_activity_mask(src_vocals, sr).mean() * 100)
+            if active_pct < 5.0:
+                notes.append(f"原唱人声活跃段仅 {active_pct:.0f}%，疑似分离异常——跳过静音段清理以防误伤人声")
+            else:
+                vocals, gated_pct = gate_to_source(vocals, src_vocals, sr)
+                if gated_pct > 1.0:
+                    notes.append(f"静音段清理：已抑制句间非演唱片段（约 {gated_pct:.0f}% 时长），"
+                                 "去除转换残留噪声")
         except Exception as e:
             notes.append(f"静音段清理失败（跳过）：{e}")
+
+    # 5a1) 频谱包络匹配：把转换人声的分频段能量对齐到原唱人声
+    #      （治"发闷/低频浑浊"的根治方案，逐歌自动测算，替代手调静态 EQ）
+    if config.SPECTRAL_MATCH:
+        progress(STAGES[4], 0.15)
+        try:
+            vocals = match_spectral_envelope(vocals, src_vocals, sr)
+            notes.append("频谱包络匹配：已将转换人声分频段能量对齐到原唱人声")
+        except Exception as e:
+            notes.append(f"频谱包络匹配失败（跳过）：{_short_reason(e)}")
 
     # 5a2) 人声总线：低切去浊 → 压缩增密 → 去刺 → 板式混响粘合。
     #      转换人声低频浑浊、动态松散、干得像卡拉OK，商业人声必经的"总线"处理
@@ -213,7 +228,10 @@ def _execute(*, song_path: Path, ref_wav: Path, engine_name: str, separator_name
             g = auto_vocal_gain(src_vocals, vocals, sr)
             if g:
                 vocals = vocals * (10 ** (g / 20.0))
-                notes.append(f"人声电平自动对齐：{g:+.1f} dB（转换后响度 → 原唱人声响度）")
+                note = f"人声电平自动对齐：{g:+.1f} dB（转换后响度 → 原唱人声响度）"
+                if abs(g) >= 8.9:
+                    note += "——已达对齐上限，转换输出电平异常，请查看引擎回退日志"
+                notes.append(note)
         except Exception as e:
             notes.append(f"人声电平对齐失败（跳过）：{e}")
 
