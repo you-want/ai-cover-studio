@@ -1,9 +1,27 @@
-# 可选高质量组件（setup.sh --full 会自动尝试安装；失败不影响核心功能）
+# 可选高质量组件（setup.sh --full 自动安装；失败不影响核心功能）
+#
+# ⚠️ 版本矩阵经实机锁定（Intel Mac / torch 2.2.2 / py3.12）：
+#   - numpy 必须 1.x（torch 2.2.2 生态），见 requirements-core.txt
+#   - transformers 4.57.x 要求 huggingface_hub <1.0
+#   - hf-mirror 冷缓存下载由 scripts/download_seedvc.py 的隔离垫片解决
+#     （垫片内用 hub 2.3 下载，运行时保持本文件的 0.36.x）
+#
+# 注意：audio-separator（人声去混响）与本文件存在 protobuf 约束互斥
+# （descript-audiotools 要求 <3.20，onnx 要求 >=4），由 setup.sh 分两步安装——
+# 实测两者共存时 dac 推理路径完全正常。
+
 # 1) 人声分离
 torch
 torchaudio
 demucs>=4.0.1
 
-# 2) OpenVoice v2 音色克隆（模型权重用 scripts/download_openvoice.py 下载，
-#    openvoice 本体因依赖冲突建议用 setup.sh 中的 --no-deps 方式安装）
-huggingface_hub
+# 2) Seed-VC 推理运行时（模型权重用 scripts/download_seedvc.py 预热）
+descript-audio-codec==1.0.0
+transformers>=4.57,<5
+huggingface_hub>=0.36.2,<1.0
+
+# 3) OpenVoice v2（本体由 setup.sh --no-deps 安装，权重用 scripts/download_openvoice.py）
+#    huggingface_hub 已由上方条目覆盖
+
+# 4) 云端付费 API 引擎（HTTP 调用）
+requests>=2.31

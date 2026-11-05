@@ -107,6 +107,17 @@ else
   echo "✗ seed-vc 仓库获取失败（可选，跳过）"
 fi
 
+echo "-- 5/5 安装引擎运行时依赖（锁定版本矩阵，见 requirements-optional.txt 注释）--"
+# 步骤 A：主体依赖一次解出（不含 audio-separator，见下）
+pip install -q -r requirements-optional.txt "numpy==1.26.4" \
+  && echo "✓ 主体依赖完成" || echo "✗ 主体依赖安装失败（相关引擎自动降级）"
+# 步骤 B：audio-separator 与 descript-audiotools 的 protobuf 约束互斥，必须独立安装；
+# 实测共存时 dac 推理路径正常（pypi 解析器会打依赖冲突警告，可忽略）
+pip install -q audio-separator "protobuf>=4,<5" \
+  && "$PY" -c "import audio_separator, dac" 2>/dev/null \
+  && echo "✓ 去混响依赖完成（共存验证通过）" \
+  || echo "✗ 去混响依赖安装失败（DEREVERB 自动降级，不影响其他功能）"
+
 echo ""
 echo "== 安装结果汇总 =="
 "$PY" -m app.cli engines

@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "声替 CoverMe"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("VC_DATA_DIR", BASE_DIR / "data"))
