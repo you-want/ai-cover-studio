@@ -163,11 +163,14 @@ class SeedVCEngine(BaseVoiceEngine):
         fd = proc.stdout.fileno()  # type: ignore[union-attr]
         tail = b""
         last_output = time.time()
-        hard_deadline = time.time() + 4 * 3600
+        hard_deadline = time.time() + config.SEEDVC_CAP_H * 3600
         while True:
             if time.time() > hard_deadline:
                 proc.kill()
-                raise RuntimeError("Seed-VC 推理超过 4 小时硬上限，已终止")
+                raise RuntimeError(
+                    f"Seed-VC 推理超过 {config.SEEDVC_CAP_H:g} 小时硬上限，已终止"
+                    "（机器被其他任务挤占时会变慢；可用 VC_SEEDVC_CAP_H 调整上限，"
+                    "或降低 VC_SEEDVC_STEPS）")
             ready, _, _ = select.select([fd], [], [], 60)
             if not ready:
                 if time.time() - last_output > 1800:

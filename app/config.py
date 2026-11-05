@@ -46,6 +46,9 @@ SPECTRAL_MATCH = os.getenv("VC_SPECTRAL_MATCH", "1") != "0"
 SEEDVC_DIFFUSION_STEPS = int(os.getenv("VC_SEEDVC_STEPS", "30"))
 # Seed-VC 歌唱模式（SVC，f0-condition）：权重就绪时优先使用，关闭则强制 VC 模式
 SEEDVC_SVC = os.getenv("VC_SEEDVC_SVC", "1") != "0"
+# SVC 硬上限（小时）：整曲多分块在算力被挤占时可能超过 4h（实测教训）；
+# 真正的卡死由"30 分钟无输出"看门狗负责，这里只防天文数字级别的失控
+SEEDVC_CAP_H = float(os.getenv("VC_SEEDVC_CAP_H", "8"))
 
 # 云端付费 API 引擎（可选；auto 模式永不自动使用，仅用户明确选择时计费）
 CLOUD_PROVIDER = os.getenv("VC_CLOUD_PROVIDER", "")            # replicate / elevenlabs
