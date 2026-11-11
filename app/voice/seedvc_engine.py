@@ -57,6 +57,8 @@ def _torch_env() -> dict:
 
 
 def _pick_device() -> str:
+    if config.DEVICE != "auto":   # 显式覆盖（VC_DEVICE=cpu/mps/cuda），调试/回退用
+        return config.DEVICE
     try:
         import torch
         if torch.cuda.is_available():

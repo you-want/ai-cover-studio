@@ -10,6 +10,19 @@ elif command -v python3.11 >/dev/null 2>&1; then PY=python3.11
 else PY=python3; fi
 echo "== 使用 Python: $($PY --version 2>&1) =="
 
+# 双架构版本矩阵（Apple Silicon=arm64 用 numpy 2.x 新 torch/MPS 生态；Intel Mac=x86_64 锁旧矩阵）
+# 注意：含 >= 的版本约束必须放数组并整体引用，否则会被 shell 解释成重定向
+ARCH="$(uname -m)"
+if [ "$ARCH" = "x86_64" ] && [ "$(uname -s)" = "Darwin" ]; then
+  NUMBA_PKGS=('numba==0.60.0' 'llvmlite==0.43.0')   # 有 macOS x86_64 预编译轮子且兼容 numpy 1.x
+  NUMPY_PKGS=('numpy==1.26.4')                       # torch 2.2.2（Intel Mac 最后版本）生态
+  echo "== 架构: ${ARCH}（Intel Mac：torch 2.2.2 + numpy 1.x 旧矩阵）=="
+else
+  NUMBA_PKGS=('numba>=0.61' 'llvmlite>=0.44')        # numpy 2.x 支持
+  NUMPY_PKGS=('numpy>=2.0')
+  echo "== 架构: ${ARCH}（Apple Silicon/其他：最新 torch（MPS）+ numpy 2.x）=="
+fi
+
 if [ ! -x .venv/bin/python ]; then
   echo "== 创建虚拟环境 .venv =="
   "$PY" -m venv .venv
@@ -46,7 +59,7 @@ pip install -q huggingface_hub
 
 echo "-- 3/4 安装 openvoice 包（--no-deps 避免 gradio 依赖冲突）--"
 # GitHub 直连常被墙：先试直连，失败则走加速代理拉 tarball
-pip install -q numba==0.60.0 llvmlite==0.43.0   # 锁定有 macOS 预编译轮子的版本
+pip install -q "${NUMBA_PKGS[@]}"   # 按架构锁定（见顶部矩阵说明）
 ok_pkg=0
 for i in 1 2; do
   if pip install -q --no-deps "git+https://github.com/myshell-ai/OpenVoice.git"; then ok_pkg=1; break; fi
@@ -64,7 +77,7 @@ for i in 1 2; do
 done
 if [ "$ok_pkg" = "1" ]; then
   # numba/llvmlite/numpy 必须与依赖在同一条命令中锁版本，否则 pip 会拉到破坏 torch 生态的组合
-  pip install -q numba==0.60.0 llvmlite==0.43.0 numpy==1.26.4 \
+  pip install -q "${NUMBA_PKGS[@]}" "${NUMPY_PKGS[@]}" \
     librosa unidecode pypinyin cn2an eng_to_ipa inflect matplotlib jieba pydub langid \
     faster-whisper whisper-timestamped wavmark \
     && "$PY" -c "from openvoice.api import ToneColorConverter" 2>/dev/null \
@@ -109,7 +122,7 @@ fi
 
 echo "-- 5/5 安装引擎运行时依赖（锁定版本矩阵，见 requirements-optional.txt 注释）--"
 # 步骤 A：主体依赖一次解出（不含 audio-separator，见下）
-pip install -q -r requirements-optional.txt "numpy==1.26.4" \
+pip install -q -r requirements-optional.txt "${NUMPY_PKGS[@]}" \
   && echo "✓ 主体依赖完成" || echo "✗ 主体依赖安装失败（相关引擎自动降级）"
 # 步骤 B：audio-separator 与 descript-audiotools 的 protobuf 约束互斥，必须独立安装；
 # 实测共存时 dac 推理路径正常（pypi 解析器会打依赖冲突警告，可忽略）

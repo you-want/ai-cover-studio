@@ -1,7 +1,10 @@
 # 可选高质量组件（setup.sh --full 自动安装；失败不影响核心功能）
 #
-# ⚠️ 版本矩阵经实机锁定（Intel Mac / torch 2.2.2 / py3.12）：
-#   - numpy 必须 1.x（torch 2.2.2 生态），见 requirements-core.txt
+# ⚠️ 版本矩阵双架构（Intel Mac 与 Apple Silicon，py3.12）：
+#   - torch/torchaudio 保持不 pin：PyPI 按 venv 架构自动解析——
+#     Intel Mac（x86_64）自动落到 2.2.2（最后支持 Intel 的版本），arm64 拿最新 MPS 版
+#   - Intel Mac 生态需 numpy 1.x / numba 0.60（setup.sh 按 uname -m 锁定）
+#   - Apple Silicon 用 numpy 2.x / numba>=0.61（setup.sh 按 uname -m 选择）
 #   - transformers 4.57.x 要求 huggingface_hub <1.0
 #   - hf-mirror 冷缓存下载由 scripts/download_seedvc.py 的隔离垫片解决
 #     （垫片内用 hub 2.3 下载，运行时保持本文件的 0.36.x）
@@ -19,9 +22,13 @@ demucs>=4.0.1
 descript-audio-codec==1.0.0
 transformers>=4.57,<5
 huggingface_hub>=0.36.2,<1.0
+munch>=2.5   # seed-vc modules/commons 直连依赖（上游 requirements 未声明，实测必需）
 
 # 3) OpenVoice v2（本体由 setup.sh --no-deps 安装，权重用 scripts/download_openvoice.py）
 #    huggingface_hub 已由上方条目覆盖
 
 # 4) 云端付费 API 引擎（HTTP 调用）
 requests>=2.31
+
+# 5) 人声去混响：audio-separator 本体由 setup.sh 步骤 B 独立安装（protobuf 互斥见上）
+audioread>=3.0   # uvr_lib_v5 直连依赖；librosa 1.0 起不再传递安装，须显式声明

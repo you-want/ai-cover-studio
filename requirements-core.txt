@@ -2,9 +2,13 @@
 fastapi>=0.110
 uvicorn>=0.29
 python-multipart>=0.0.9
-# numpy 锁 <2：torch 2.2.2（Intel Mac 最后版本）与 demucs 生态需要 numpy 1.x
-numpy>=1.26,<2.0
-scipy>=1.11,<1.15
+# 双架构版本矩阵（pip 环境标记按机器自动选择，见 requirements-optional.txt 头注释）
+#   - Intel Mac（x86_64）：torch 2.2.2（Intel Mac 最后版本）生态需要 numpy 1.x / scipy<1.15
+#   - Apple Silicon（arm64）及其他平台：新 torch（MPS）生态，numpy 2.x
+numpy>=1.26,<2.0; platform_machine == "x86_64" and sys_platform == "darwin"
+numpy>=2.0; platform_machine != "x86_64" or sys_platform != "darwin"
+scipy>=1.11,<1.15; platform_machine == "x86_64" and sys_platform == "darwin"
+scipy>=1.14; platform_machine != "x86_64" or sys_platform != "darwin"
 soundfile>=0.12
 imageio-ffmpeg>=0.5   # 兜底 ffmpeg 二进制（系统未装 ffmpeg 时使用）
 

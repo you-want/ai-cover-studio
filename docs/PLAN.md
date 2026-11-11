@@ -105,6 +105,7 @@
 | M18 | 破音治理 + 品牌化：人声轨独立峰值控制（混音前软限幅，实测限幅 1.9dB 消除硬削波）；转换发闷检测（>5kHz 能量对比）；产品更名「声替 CoverMe」+ 自研 Logo；样本分区（系统音色库/我的录音）+ 用户录音改名 + 静音样本上传拦截；根因修复 lowshelf 滤波器历史系数错误（极点发散）；人声总线（低切+压缩 crest 7.0→4.5+去刺+板式混响）；压缩器包络检测器重写（峰值保持，旧实现反而加重尖峰）；SVC 扩散步数级实时进度（分块感知）+ 双看门狗 + 重启自动恢复任务 | ✅ |
 | M19 | 云端付费 API 引擎（replicate/elevenlabs 适配器）：auto 模式永不静默计费的安全设计、Key 仅存环境变量、转换结果进同一混音链；依赖矩阵锁定并写入 requirements（numpy<2 / protobuf<5 / transformers 4.57 + hub<1.0 / 隔离垫片下载机制）；测试 40 例 | ✅ |
 | M20 | 小白一键：智能匹配（副歌片段分离 → 音域/亮度测定 → 全音域样本评分推荐 + 推荐理由展示 + 一键应用，云端引擎永不参与推荐）；录音教练（语音平衡录音词 + 实时电平表三区反馈 + 录音质量体检）；43→44 例测试；版本 1.1.0 | ✅ |
+| M21 | Apple Silicon 支持：依赖矩阵双架构（numpy/scipy 按平台标记分流，Intel 锁 torch 2.2.2 + numpy 1.x / arm64 走最新 torch(MPS) + numpy 2.x；setup.sh 按 `uname -m` 条件锁 numba/llvmlite/numpy）；补依赖 audioread（librosa 1.0 起不再传递）与 munch（seed-vc 上游未声明）；新增 `VC_DEVICE` 设备覆盖（config + demucs/seedvc/openvoice 三处 _pick_device）；M1 Max 实测：demucs 15s≈8s / 去混响≈10s / OpenVoice 15s≈3s / Seed-VC SVC @2步≈24s / 30s 片段端到端≈23s；vendored seed-vc 新增两处 MPS 兼容补丁（F0 数组 float64→float32——MPS 不支持 float64；torchaudio 2.9+ save 委托 TorchCodec → 改 soundfile 写盘）；测试 44 例 | ✅ |
 
 ## 5. 风险与对策
 

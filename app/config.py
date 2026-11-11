@@ -25,6 +25,9 @@ MAX_CONCURRENT_JOBS = int(os.getenv("VC_MAX_CONCURRENT_JOBS", "1"))
 
 DEFAULT_ENGINE = os.getenv("VC_DEFAULT_ENGINE", "auto")       # auto = 按优先级选可用引擎
 DEFAULT_SEPARATOR = os.getenv("VC_DEFAULT_SEPARATOR", "auto")  # auto = demucs 优先，中心声道兜底
+# 计算设备覆盖（auto = cuda→mps→cpu 自动探测；可显式设 cpu/mps/cuda，
+# 调试或某引擎在 MPS 上不稳时回退用，如 VC_DEVICE=cpu）
+DEVICE = os.getenv("VC_DEVICE", "auto").lower()
 DEMUCS_MODEL = os.getenv("VC_DEMUCS_MODEL", "htdemucs")
 
 # 分离子进程超时（秒）：CPU 上一首 12 分钟的歌约需 20 分钟，超时按失败处理走兜底

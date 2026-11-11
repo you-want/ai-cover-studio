@@ -67,8 +67,8 @@ bash run.sh
 
 | 引擎 | 原理 | 质量 | 依赖 | 适用 |
 |------|------|:---:|------|------|
-| **Seed-VC**（实验） | SVC 歌唱模式：F0 条件化保留旋律唱腔 + 音域自动适配 | ★★★★★ | 仓库+权重约 3GB | 对歌曲效果最佳，CPU 一首约 1~3 小时 |
-| **OpenVoice v2** | 零样本音色迁移，保留旋律节奏 | ★★★★ | 包+权重约 500MB | 默认推荐，CPU 几十秒~几分钟/曲 |
+| **Seed-VC**（实验） | SVC 歌唱模式：F0 条件化保留旋律唱腔 + 音域自动适配 | ★★★★★ | 仓库+权重约 3GB | 对歌曲效果最佳；Apple Silicon（MPS）15 秒约 24 秒，Intel CPU 一首约 1~3 小时 |
+| **OpenVoice v2** | 零样本音色迁移，保留旋律节奏 | ★★★★ | 包+权重约 500MB | 默认推荐；Apple Silicon（MPS）15 秒人声约 3 秒，Intel CPU 几十秒~几分钟/曲 |
 | **音域适配 pitchfit** | DSP 把原唱音高适配到你的音域+EQ | ★★（演示） | 无（纯离线） | 兜底/快速试听 |
 
 流水线含 **UVR-DeEcho-DeReverb 人声去混响**（转换前烘干分离人声，减少拖影毛刺，
@@ -118,6 +118,7 @@ docs/PLAN.md     # 完整规划与实施方案
 | `VC_SEPARATION_CACHE` | 1 | 分离结果缓存开关（0 关闭） |
 | `VC_CACHE_MAX_GB` | 5 | 分离缓存容量上限（GB），超限按最旧淘汰 |
 | `VC_SEEDVC_STEPS` | 30 | Seed-VC 扩散步数（越大越慢略越好） |
+| `VC_DEVICE` | auto | 计算设备覆盖：`auto`=cuda→mps→cpu 自动探测，可显式设 `cpu`/`mps`/`cuda`（调试/回退用） |
 | `VC_CLOUD_PROVIDER` | （空） | 云端付费 API 引擎：`replicate` / `elevenlabs` |
 | `VC_CLOUD_API_KEY` | （空） | 云端 API 密钥（仅存环境变量，不入库不上传） |
 | `VC_CLOUD_VOICE_ID` | （空） | ElevenLabs Voice ID 或 Replicate 模型 slug（owner/model[:version]） |
@@ -134,7 +135,9 @@ docs/PLAN.md     # 完整规划与实施方案
 - **Seed-VC 首次很慢？** 运行 `.venv/bin/python scripts/download_seedvc.py` 提前下载约 2GB 权重（走 hf-mirror，自动做一次 CPU 验证推理）；之后权重常驻本地、离线可用。CPU 推理一首约 5 分钟（`VC_SEEDVC_STEPS` 越小越快），转换失败会自动回退不影响其他引擎。
 - **模型下载慢/失败？** 已默认走 hf-mirror.com 镜像（自动禁用 Xet 协议）；OpenVoice 源码获取在 GitHub 被墙时自动切换加速代理。
 - **克隆效果不像？** 先确认样本有效：静音/爆音的录音会直接被拒绝（上传时校验）。用安静环境的**干声**（10~30 秒、无伴奏无混响、正常音量说一段再哼两句）；OpenVoice 的 tau 越小音色越浓；想换音色可试界面里预置的"参考音色"（模型仓库自带的高质量人声），追求细节还原用 Seed-VC（CPU 约数分钟/曲）。
-- **本机实测（Intel i7-9750H 纯 CPU）**：Demucs 分离 15 秒歌曲约 40 秒；OpenVoice 音色克隆 15 秒人声约 14 秒；演示引擎秒级。
+- **本机实测**：
+  - **Apple Silicon（M1 Max，arm64 原生 + MPS）**：Demucs 分离 15 秒歌曲约 8 秒；OpenVoice 音色克隆 15 秒人声约 3 秒；Seed-VC SVC 15 秒 @2 步约 24 秒；30 秒片段端到端全流程约 23 秒；演示引擎秒级。
+  - Intel（i7-9750H 纯 CPU）：Demucs 分离 15 秒歌曲约 40 秒；OpenVoice 音色克隆 15 秒人声约 14 秒；演示引擎秒级。
 
 ## ⚠️ 使用声明
 
