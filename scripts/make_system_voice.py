@@ -36,15 +36,19 @@ from app.audio.io import load_wav, save_wav, wav_duration  # noqa: E402
 
 # 默认 preset：以仓库内现成参考音色为底
 PRESETS = {
-    # 源：参考音色·清亮男声（f0≈230Hz）→ 降 6.5 个半音（≈150Hz）+ 较强嘎裂/气声 = 农民老头的苍老感
+    # 源：参考音色·清亮男声（f0≈230Hz）→ 降 6 个半音（≈150Hz）+ 温和嘎裂 = 农民老头的苍老感
+    # v2（实测复盘）：v1 的 creaky=0.55（6.5Hz 调幅）+ tremor=0.05（5Hz 颤抖）节奏落在
+    # "抽泣"频段，SVC 把它搬进歌声后听感是明显哭腔；rolloff=5000 则导致转换输出发闷
+    # （>5kHz 能量 7.7% vs 原唱 25.4%）。v2 放缓调幅、放宽高频。
     "old-man": dict(
         source="613b7e4620ca4623", name="系统音色·农民老头",
-        semitones=-6.5, creaky=0.55, breath=0.18, tremor=0.05, rolloff=5000, seed=7,
+        semitones=-6.0, creaky=0.30, breath=0.12, tremor=0.02, rolloff=6500, seed=7,
     ),
-    # 源：参考音色·温暖女中音（f0≈196Hz）→ 降 3 个半音（≈150Hz）+ 气声偏重 = 老太太的沧桑感
+    # 源：参考音色·温暖女中音（f0≈196Hz）→ 降 3 个半音（≈165Hz）+ 气声偏重 = 老太太的沧桑感
+    # v2：与 old-man 同理放缓调幅、放宽高频
     "old-lady": dict(
         source="47062276128303a0", name="系统音色·老太太",
-        semitones=-3.0, creaky=0.35, breath=0.24, tremor=0.04, rolloff=5500, seed=11,
+        semitones=-3.0, creaky=0.22, breath=0.16, tremor=0.02, rolloff=6800, seed=11,
     ),
 }
 
