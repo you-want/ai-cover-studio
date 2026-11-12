@@ -81,11 +81,96 @@ def vocal_activity_mask(vocals: np.ndarray, sr: int,
     return (g * mask).astype(np.float32)
 
 
-def gate_to_source(converted: np.ndarray, source: np.ndarray, sr: int) -> tuple[np.ndarray, float]:
-    """静音段噪声门：原唱人声没在唱的位置，把转换后人声压到静音。
+def intro_bleed_gain(source: np.ndarray, instrumental: np.ndarray, sr: int,
+                     min_gap_s: float = 1.2, bridge_s: float = 1.0,
+                     min_block_s: float = 2.0, inst_floor_db: float = -35.0,
+                     head_drop_db: float = 6.0, head_cap_pct: float = 20.0,
+                     fade_s: float = 0.12) -> np.ndarray:
+    """前奏串音门：把"第一句真正演唱之前"的人声轨残留压到静音。
 
-    清理音色转换模型在句间产生的残响/噪声/电流声。返回 (处理后信号, 抑制比例)，
-    抑制比例 = 被压低区域占总时长的百分比（写入任务日志）。
+    Demucs 两轨分离并不完美：前奏的乐器会以 -20~-40dB 漏进人声轨，音色转换模型
+    对这类非人声输入会输出"哼鸣"状假人声（实测前奏 10 秒被转成难听哼唱）；
+    电平噪声门挡不住它（串音 -27dB 远高于 -55dB 活动门限）。
+
+    结构化判定（波形/包络相关性实测不可行——伴奏轨本身含人声泄漏，相关性失效），
+    以下条件同时满足才压掉，链上任何一条不满足即放弃（宁可放过不可误杀）：
+      1) 开头活动块之后紧跟 ≥min_gap_s 的间隙（串音块与主歌之间有停顿）；
+      2) 开头活动块时长 ≥min_block_s（真前奏，不是起音毛刺）；
+      3) 该区间伴奏响度 ≥inst_floor_db（是伴奏前奏——清唱弱起开头伴奏很轻，防误杀）；
+      4) 块内人声电平比全曲演唱电平中位数低 ≥head_drop_db（串音弱于真人声）；
+      5) 压掉总时长 ≤head_cap_pct 曲长（异常保护）。
+
+    返回逐样本增益 [0,1]（[T]）：1=保留，0=压低。
+    """
+    ones = np.ones(max(source.shape[-1], instrumental.shape[-1]), dtype=np.float32)
+    try:
+        am = vocal_activity_mask(source, sr)          # 活动掩码（含斜坡）
+        active = am > 0.5
+        if not active.any():
+            return ones
+        # 帧级（10ms）桥接：串音块内部的短凹陷（<bridge_s）不切断前奏块；
+        # 真正的句间间隙（≥min_gap_s > bridge_s）仍然保留。
+        # 直接在样本级做 binary_closing 需要 0.6s 的结构元素，千万级采样上慢到不可用
+        fr = max(1, int(0.01 * sr))
+        n_fr = active.size // fr
+        act_fr = active[:n_fr * fr].reshape(n_fr, fr).max(axis=1)
+        from scipy.ndimage import binary_closing
+        act_fr = binary_closing(act_fr, np.ones(max(1, int(bridge_s / 0.01)), dtype=np.int8))
+        active = np.repeat(act_fr.astype(bool), fr)
+        if active.size < am.size:
+            active = np.pad(active, (0, am.size - active.size),
+                            constant_values=bool(act_fr[-1]) if act_fr.size else False)
+        # 活动块切分
+        edges = np.diff(active.astype(np.int8))
+        starts = list(np.where(edges == 1)[0] + 1)
+        ends = list(np.where(edges == -1)[0] + 1)
+        if active[0]:
+            starts = [0] + starts
+        if len(starts) < 2 or len(ends) < 1:
+            return ones
+        t0, t1 = starts[0], ends[0]
+        if (t1 - t0) < int(min_block_s * sr):         # 条件 2：块太短
+            return ones
+        if starts[1] - t1 < int(min_gap_s * sr):      # 条件 1：块后无间隙
+            return ones
+
+        def _block_db(x: np.ndarray, a: int, b: int) -> float:
+            seg = x[a:b]
+            return float(20.0 * np.log10(np.sqrt(np.mean(seg.astype(np.float64) ** 2)) + 1e-12))
+
+        inst_db = _block_db(to_mono(instrumental), t0, t1)
+        if inst_db < inst_floor_db:                   # 条件 3：伴奏很轻=清唱开头
+            return ones
+        src_mono = to_mono(source)
+        head_db = _block_db(src_mono, t0, t1)
+        rest = active.copy(); rest[:starts[1]] = False
+        if not rest.any():
+            return ones
+        sing_db = float(np.median(20.0 * np.log10(
+            np.sqrt(np.mean(src_mono[rest].astype(np.float64) ** 2)) + 1e-12)))
+        if sing_db - head_db < head_drop_db:          # 条件 4：电平不显著低于演唱
+            return ones
+        if (t1 / max(ones.size, 1)) * 100.0 > head_cap_pct:  # 条件 5：异常保护
+            return ones
+
+        gain = ones.copy()
+        gain[:t1] = 0.0
+        ramp = min(int(fade_s * sr), t1)              # 块尾斜坡，避免咔哒声
+        if ramp > 0:
+            gain[t1 - ramp:t1] = np.linspace(0.0, 1.0, ramp, dtype=np.float32)
+        return gain
+    except Exception:
+        return ones  # 串音门失败不阻塞主流程
+
+
+def gate_to_source(converted: np.ndarray, source: np.ndarray, sr: int,
+                   instrumental: np.ndarray | None = None) -> tuple[np.ndarray, float]:
+    """静音段噪声门 + 分离串音抑制：原唱人声没在唱的位置、以及人声轨中
+    与伴奏高度相关的"分离残留"（前奏/间奏假声），都把转换后人声压到静音。
+
+    清理音色转换模型在句间产生的残响/噪声/电流声；instrumental 提供时额外启用
+    串音检测（电平门挡不住前奏串音，SVC 会把它转成"哼鸣"假人声，实测教训）。
+    返回 (处理后信号, 抑制比例%)——比例写入任务日志。
     """
     c = np.asarray(converted, dtype=np.float32)
     src = np.asarray(source, dtype=np.float32)
@@ -93,6 +178,8 @@ def gate_to_source(converted: np.ndarray, source: np.ndarray, sr: int) -> tuple[
     c = pad_or_trim(c, n)
     src = pad_or_trim(src, n)
     gain = vocal_activity_mask(src, sr)
+    if instrumental is not None:
+        gain = gain * intro_bleed_gain(src, instrumental, sr)
     gated = c * gain[None, :] if c.ndim > 1 else c * gain
     frac = float(np.mean(gain < 0.5) * 100.0)
     return gated.astype(np.float32), frac
@@ -281,6 +368,6 @@ def vocal_bus(vocals: np.ndarray, sr: int) -> np.ndarray:
     return _plate_reverb(y, sr)
 
 
-__all__ = ["mix_tracks", "master", "vocal_activity_mask", "gate_to_source",
+__all__ = ["mix_tracks", "master", "vocal_activity_mask", "intro_bleed_gain", "gate_to_source",
            "auto_vocal_gain", "control_vocal_peaks", "vocal_bus",
            "match_spectral_envelope"]

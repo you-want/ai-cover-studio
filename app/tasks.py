@@ -194,10 +194,10 @@ def _execute(*, song_path: Path, ref_wav: Path, engine_name: str, separator_name
             if active_pct < 5.0:
                 notes.append(f"原唱人声活跃段仅 {active_pct:.0f}%，疑似分离异常——跳过静音段清理以防误伤人声")
             else:
-                vocals, gated_pct = gate_to_source(vocals, src_vocals, sr)
+                vocals, gated_pct = gate_to_source(vocals, src_vocals, sr, instrumental=inst)
                 if gated_pct > 1.0:
-                    notes.append(f"静音段清理：已抑制句间非演唱片段（约 {gated_pct:.0f}% 时长），"
-                                 "去除转换残留噪声")
+                    notes.append(f"静音段清理：已抑制句间非演唱片段与分离串音（约 {gated_pct:.0f}% 时长），"
+                                 "去除转换残留噪声/前奏假声")
         except Exception as e:
             notes.append(f"静音段清理失败（跳过）：{e}")
 
