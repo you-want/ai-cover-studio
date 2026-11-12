@@ -53,6 +53,9 @@ def _torch_env() -> dict:
     n = str(min(6, os.cpu_count() or 4))
     env.setdefault("OMP_NUM_THREADS", n)
     env.setdefault("MKL_NUM_THREADS", n)
+    # stdout 接的是管道 → 默认块缓冲，tqdm/进度行会攒到缓冲满才吐出，
+    # 表现为"进度条冻结但任务实际在跑"（实测教训）；强制无缓冲
+    env.setdefault("PYTHONUNBUFFERED", "1")
     return env
 
 
