@@ -102,7 +102,10 @@ def intro_bleed_gain(source: np.ndarray, instrumental: np.ndarray, sr: int,
 
     返回逐样本增益 [0,1]（[T]）：1=保留，0=压低。
     """
-    ones = np.ones(max(source.shape[-1], instrumental.shape[-1]), dtype=np.float32)
+    # 增益按"人声轨时间轴"定义：伴奏轨可能比人声轨长/短几十个采样
+    # （demucs 分离输出的小数对齐差，实测 33 样本），按人声轨长度对齐，
+    # 否则与 vocal_activity_mask 相乘时广播失败（实测教训）
+    ones = np.ones(np.asarray(source).shape[-1], dtype=np.float32)
     try:
         am = vocal_activity_mask(source, sr)          # 活动掩码（含斜坡）
         active = am > 0.5
